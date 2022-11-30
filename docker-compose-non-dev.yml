@@ -1,0 +1,197 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+x-superset-image: &superset-image finminddocker/finmind_superset:dev
+x-superset-depends-on: &superset-depends-on
+  - superset-mysql
+  - superset-phpmyadmin
+  - superset-redis
+x-superset-volumes: &superset-volumes
+  # /app/pythonpath_docker will be appended to the PYTHONPATH in the final container
+  # - ./docker:/app/docker
+  - superset_home:/app/superset_home
+
+version: "3.7"
+services:
+  superset-redis:
+    image: redis:latest
+    container_name: superset_cache
+    restart: unless-stopped
+    volumes:
+      - redis:/data
+
+  superset-mysql:
+    image: mysql:8.0
+    ports:
+        - 3306:3306
+    command: mysqld --default-authentication-plugin=mysql_native_password
+    environment:
+        MYSQL_DATABASE: superset
+        MYSQL_USER: superset
+        MYSQL_PASSWORD: superset
+        MYSQL_ROOT_PASSWORD: superset
+        UPLOAD_LIMIT: 4096M
+    volumes:
+        - ./dump:/docker-entrypoint-initdb.d
+        - mysql:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:5.1.0
+    links: 
+        - superset-mysql:db
+    ports:
+        - 8888:80
+    depends_on:
+      - superset-mysql
+    environment:
+        PMA_HOST: superset-mysql
+        PMA_PORT: 3306
+        UPLOAD_LIMIT: 4096M
+
+  superset:
+    environment:
+      COMPOSE_PROJECT_NAME: superset
+      DATABASE_DB: superset
+      DATABASE_HOST: superset-mysql
+      DATABASE_PASSWORD: superset
+      DATABASE_USER: superset
+      DATABASE_PORT: 3306
+      DATABASE_DIALECT: mysql
+      MYSQL_DATABASE: superset
+      MYSQL_USER: superset
+      MYSQL_PASSWORD: superset
+      PYTHONPATH: /app/pythonpath:/app/docker/pythonpath_dev
+      REDIS_HOST: superset-redis
+      REDIS_PORT: 6379
+      FLASK_ENV: development
+      SUPERSET_ENV: development
+      SUPERSET_LOAD_EXAMPLES: 'yes'
+      CYPRESS_CONFIG: 'false'
+      SUPERSET_PORT: 8088
+      WTF_CSRF_ENABLED: 'False'
+      SESSION_COOKIE_SAMESITE: None
+      SESSION_COOKIE_SECURE: 'False'
+      SESSION_COOKIE_HTTPONLY: 'False'
+      AUTH_ROLE_PUBLIC: 'Public'
+      PUBLIC_ROLE_LIKE: 'Gamma'
+    image: *superset-image
+    container_name: superset_app
+    command: ["/app/docker/docker-bootstrap.sh", "app-gunicorn"]
+    user: "root"
+    restart: unless-stopped
+    ports:
+      - 8088:8088
+    depends_on: *superset-depends-on
+    volumes: *superset-volumes
+
+  superset-init:
+    image: *superset-image
+    container_name: superset_init
+    command: ["/app/docker/docker-init.sh"]
+    environment:
+      COMPOSE_PROJECT_NAME: superset
+      DATABASE_DB: superset
+      DATABASE_HOST: superset-mysql
+      DATABASE_PASSWORD: superset
+      DATABASE_USER: superset
+      DATABASE_PORT: 3306
+      DATABASE_DIALECT: mysql
+      MYSQL_DATABASE: superset
+      MYSQL_USER: superset
+      MYSQL_PASSWORD: superset
+      PYTHONPATH: /app/pythonpath:/app/docker/pythonpath_dev
+      REDIS_HOST: superset-redis
+      REDIS_PORT: 6379
+      FLASK_ENV: development
+      SUPERSET_ENV: development
+      SUPERSET_LOAD_EXAMPLES: 'yes'
+      CYPRESS_CONFIG: 'false'
+      SUPERSET_PORT: 8088
+      WTF_CSRF_ENABLED: 'False'
+      SESSION_COOKIE_SAMESITE: None
+      SESSION_COOKIE_SECURE: 'False'
+      SESSION_COOKIE_HTTPONLY: 'False'
+      AUTH_ROLE_PUBLIC: 'Public'
+      PUBLIC_ROLE_LIKE: 'Gamma'
+    depends_on: *superset-depends-on
+    user: "root"
+    volumes: *superset-volumes
+
+  superset-worker:
+    image: *superset-image
+    container_name: superset_worker
+    command: ["/app/docker/docker-bootstrap.sh", "worker"]
+    environment:
+      COMPOSE_PROJECT_NAME: superset
+      DATABASE_DB: superset
+      DATABASE_HOST: superset-mysql
+      DATABASE_PASSWORD: superset
+      DATABASE_USER: superset
+      DATABASE_PORT: 3306
+      DATABASE_DIALECT: mysql
+      MYSQL_DATABASE: superset
+      MYSQL_USER: superset
+      MYSQL_PASSWORD: superset
+      PYTHONPATH: /app/pythonpath:/app/docker/pythonpath_dev
+      REDIS_HOST: superset-redis
+      REDIS_PORT: 6379
+      FLASK_ENV: development
+      SUPERSET_ENV: development
+      SUPERSET_LOAD_EXAMPLES: 'yes'
+      CYPRESS_CONFIG: 'false'
+      SUPERSET_PORT: 8088
+    restart: unless-stopped
+    depends_on: *superset-depends-on
+    user: "root"
+    volumes: *superset-volumes
+
+  superset-worker-beat:
+    image: *superset-image
+    container_name: superset_worker_beat
+    command: ["/app/docker/docker-bootstrap.sh", "beat"]
+    environment:
+      COMPOSE_PROJECT_NAME: superset
+      DATABASE_DB: superset
+      DATABASE_HOST: superset-mysql
+      DATABASE_PASSWORD: superset
+      DATABASE_USER: superset
+      DATABASE_PORT: 3306
+      DATABASE_DIALECT: mysql
+      MYSQL_DATABASE: superset
+      MYSQL_USER: superset
+      MYSQL_PASSWORD: superset
+      PYTHONPATH: /app/pythonpath:/app/docker/pythonpath_dev
+      REDIS_HOST: superset-redis
+      REDIS_PORT: 6379
+      FLASK_ENV: development
+      SUPERSET_ENV: development
+      SUPERSET_LOAD_EXAMPLES: 'yes'
+      CYPRESS_CONFIG: 'false'
+      SUPERSET_PORT: 8088
+    restart: unless-stopped
+    depends_on: *superset-depends-on
+    user: "root"
+    volumes: *superset-volumes
+
+volumes:
+  superset_home:
+    external: false
+  db_home:
+    external: false
+  redis:
+    external: false
+  mysql:
+    external: false
