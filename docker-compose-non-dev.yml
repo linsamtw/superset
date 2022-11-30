@@ -48,7 +48,7 @@ services:
         - ./dump:/docker-entrypoint-initdb.d
         - mysql:/var/lib/mysql
 
-  phpmyadmin:
+  superset-phpmyadmin:
     image: phpmyadmin/phpmyadmin:5.1.0
     links: 
         - superset-mysql:db
